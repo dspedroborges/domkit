@@ -29,6 +29,60 @@
     };
   }
 
+  function computed(fn, deps) {
+    const s = signal(fn());
+
+    const update = () => {
+      s.set(fn());
+    };
+
+    deps.forEach(d => d.subscribe(update));
+
+    return {
+      get: s.get,
+      subscribe: s.subscribe
+    };
+  }
+
+  function effect(fn, deps) {
+    const run = () => fn()
+    deps.forEach(d => d.subscribe(run))
+    run()
+  }
+
+  function once(signal, fn) {
+    const unsub = signal.subscribe((v, p) => {
+      fn(v, p)
+      unsub()
+    })
+  }
+
+  let batching = false
+  const queue = new Set()
+
+  function batch(fn) {
+    batching = true
+    fn()
+    batching = false
+    queue.forEach(fn => fn())
+    queue.clear()
+  }
+
+  function combine(signals, fn) {
+    const s = signal(fn(...signals.map(sig => sig.get())))
+
+    const update = () => {
+      s.set(fn(...signals.map(sig => sig.get())))
+    }
+
+    signals.forEach(sig => sig.subscribe(update))
+
+    return {
+      get: s.get,
+      subscribe: s.subscribe
+    }
+  }
+
   function select(selector, context) {
     const root = context instanceof Element ? context : document;
     return root.querySelector(selector);
