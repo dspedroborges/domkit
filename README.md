@@ -37,7 +37,7 @@ count.set(1);   // logs: changed from 0 to 1
 count.get();    // 1
 ```
 
-The `.subscribe()` call returns an unsubscribe function:
+`.subscribe()` returns an unsubscribe function:
 
 ```js
 const unsub = count.subscribe(fn);
@@ -70,15 +70,14 @@ items.forEach(el => console.log(el.textContent));
 
 ### `on(target, event, handler, options?)`
 
-Adds an event listener to an element. Accepts a selector string or an Element. Returns a cleanup function to remove the listener.
+Adds an event listener. Accepts a selector string or an Element. Returns a cleanup function.
 
 ```js
 const off = on('#btn', 'click', function() {
   console.log('clicked');
 });
 
-// remove the listener later
-off();
+off(); // remove the listener
 ```
 
 One-time listener pattern:
@@ -88,6 +87,21 @@ var off = on('#btn', 'click', function() {
   console.log('only fires once');
   off();
 });
+```
+
+---
+
+### `off(target, event, handler, options?)`
+
+Removes an event listener. The handler reference must be the same one passed to `on`.
+
+```js
+function handleClick() {
+  console.log('clicked');
+}
+
+on('#btn', 'click', handleClick);
+off('#btn', 'click', handleClick); // removed
 ```
 
 ---
@@ -125,15 +139,32 @@ toggleClass('#box', 'active', false);  // always remove
 
 ---
 
-### `add(target, html, position?)`
+### `append(target, html)`
 
-Inserts HTML into an element using `insertAdjacentHTML`. Position defaults to `"beforeend"`.
-
-Accepted positions: `"beforebegin"`, `"afterbegin"`, `"beforeend"`, `"afterend"`.
+Inserts HTML at the end of an element's content.
 
 ```js
-add('#list', '<li>New item</li>');
-add('#list', '<li>First item</li>', 'afterbegin');
+append('#list', '<li>Last item</li>');
+```
+
+---
+
+### `prepend(target, html)`
+
+Inserts HTML at the beginning of an element's content.
+
+```js
+prepend('#list', '<li>First item</li>');
+```
+
+---
+
+### `swap(target, html)`
+
+Replaces the entire inner content of an element.
+
+```js
+swap('#container', '<p>New content</p>');
 ```
 
 ---
@@ -174,12 +205,13 @@ render('<span>{{ items[0] }}</span>', { items: ['first', 'second'] });
 // '<span>first</span>'
 ```
 
-Combine with `add` to render directly into the DOM:
+Combine with `append`, `prepend`, or `swap` to render into the DOM:
 
 ```js
 var tpl = '<li>{{ name }}</li>';
 var users = [{ name: 'Alice' }, { name: 'Bob' }];
-add('#user-list', render(tpl, users));
+
+swap('#user-list', render(tpl, users));
 ```
 
 ---

@@ -45,6 +45,11 @@
     return () => el.removeEventListener(event, handler, options);
   }
 
+  function off(target, event, handler, options) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.removeEventListener(event, handler, options);
+  }
+
   function addClass(target, ...classes) {
     const els = typeof target === "string" ? document.querySelectorAll(target) : [target];
     els.forEach((el) => el.classList.add(...classes));
@@ -65,10 +70,19 @@
     els.forEach((el) => el.remove());
   }
 
-  function add(target, html, position) {
+  function append(target, html) {
     const el = typeof target === "string" ? document.querySelector(target) : target;
-    const where = position || "beforeend";
-    el.insertAdjacentHTML(where, html);
+    el.insertAdjacentHTML("beforeend", html);
+  }
+
+  function prepend(target, html) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.insertAdjacentHTML("afterbegin", html);
+  }
+
+  function swap(target, html) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.innerHTML = html;
   }
 
   function render(tpl, data) {
@@ -107,11 +121,14 @@
     select,
     selectAll,
     on,
+    off,
     addClass,
     removeClass,
     toggleClass,
     remove,
-    add,
+    append,
+    prepend,
+    swap,
     render,
     redirect,
   };
