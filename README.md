@@ -1,228 +1,365 @@
 # domkit
 
-A tiny, zero-dependency DOM utility library. Works in the browser as a global or as a CommonJS module.
+A lightweight, dependency-free DOM utility library with signals-based reactivity, templating, and data fetching — all in one small file.
+
+- **Signals** — reactive state with subscriptions, computed values, and effects
+- **DOM helpers** — selection, manipulation, classes, events
+- **Templates** — `{{placeholder}}` rendering from objects or arrays
+- **`action`** — declarative fetch → render pipeline with caching, auth, and polling
 
 ---
 
-## Installation
+## Install
 
-Just drop `domkit.js` into your project and include it with a script tag.
+**`domkit.min.js`** — 5.1kb · 2.0kb gzipped
+
+### Browser (UMD)
 
 ```html
-<script src="domkit.js"></script>
+<script src="domkit.min.js"></script>
+<script>
+  const { signal, action, render } = domkit;
+</script>
 ```
 
-Or use it as a CommonJS module:
+### Node / Bundler
 
 ```js
-const domkit = require('./domkit');
+const domkit = require("./domkit");
+// or
+import domkit from "./domkit.js";
 ```
 
 ---
 
-## API
+## Signals & Reactivity
 
 ### `signal(initialValue)`
 
-Creates a reactive value. When `.set()` is called with a new value, all subscribers are notified.
+Creates a reactive value with get/set/subscribe.
 
 ```js
-const count = signal(0);
+const count = domkit.signal(0);
 
-count.subscribe(function(newValue, prevValue) {
-  console.log('changed from', prevValue, 'to', newValue);
+count.get();                          // 0
+count.set(5);                         // update
+count.subscribe((next, prev) => {     // react to changes
+  console.log(prev, "→", next);
 });
-
-count.set(1);   // logs: changed from 0 to 1
-count.get();    // 1
-```
-
-`.subscribe()` returns an unsubscribe function:
-
-```js
-const unsub = count.subscribe(fn);
-unsub(); // stops listening
 ```
 
 ---
+
+### `computed(fn, deps)`
+
+Derives a read-only signal from other signals.
+
+```js
+const count  = domkit.signal(4);
+const double = domkit.computed(() => count.get() * 2, [count]);
+
+double.get(); // 8
+count.set(10);
+double.get(); // 20
+```
+
+---
+
+### `effect(fn, deps)`
+
+Runs a side effect immediately and again whenever a dependency changes.
+
+```js
+const name = domkit.signal("Alice");
+
+domkit.effect(() => {
+  document.title = `Hello, ${name.get()}`;
+}, [name]);
+```
+
+---
+
+### `once(signal, fn)`
+
+Fires a callback exactly once on the next change, then unsubscribes.
+
+```js
+domkit.once(count, (next, prev) => {
+  console.log("changed once:", prev, "→", next);
+});
+```
+
+---
+
+### `batch(fn)`
+
+Groups multiple signal updates so subscribers are only notified once.
+
+```js
+domkit.batch(() => {
+  firstName.set("Jane");
+  lastName.set("Doe");
+});
+// subscribers notified once, after both updates
+```
+
+---
+
+### `combine(signals, fn)`
+
+Creates a derived signal from multiple signals using a combiner function.
+
+```js
+const a   = domkit.signal(3);
+const b   = domkit.signal(4);
+const sum = domkit.combine([a, b], (x, y) => x + y);
+
+sum.get(); // 7
+```
+
+---
+
+## DOM
 
 ### `select(selector, context?)`
-
-Returns the first matching element. Optionally scoped to a context element.
-
-```js
-const btn = select('#submit');
-const input = select('input', myForm);
-```
-
----
-
 ### `selectAll(selector, context?)`
 
-Returns an array of all matching elements.
+Query the DOM, optionally scoped to a parent element.
 
 ```js
-const items = selectAll('.item');
-items.forEach(el => console.log(el.textContent));
+const el   = domkit.select(".card");
+const list = domkit.selectAll("li", myList); // scoped
 ```
 
 ---
 
 ### `on(target, event, handler, options?)`
 
-Adds an event listener. Accepts a selector string or an Element. Returns a cleanup function.
+Adds an event listener. Returns an unsubscribe function.
 
 ```js
-const off = on('#btn', 'click', function() {
-  console.log('clicked');
-});
-
-off(); // remove the listener
-```
-
-One-time listener pattern:
-
-```js
-var off = on('#btn', 'click', function() {
-  console.log('only fires once');
-  off();
-});
+const off = domkit.on("#btn", "click", () => console.log("clicked"));
+off(); // removes the listener
 ```
 
 ---
 
 ### `off(target, event, handler, options?)`
 
-Removes an event listener. The handler reference must be the same one passed to `on`.
+Removes an event listener directly.
 
 ```js
-function handleClick() {
-  console.log('clicked');
-}
-
-on('#btn', 'click', handleClick);
-off('#btn', 'click', handleClick); // removed
+domkit.off("#btn", "click", myHandler);
 ```
 
 ---
 
 ### `addClass(target, ...classes)`
-
-Adds one or more classes. Accepts a selector string or Element.
-
-```js
-addClass('#box', 'active');
-addClass('#box', 'active', 'visible');
-```
-
----
-
 ### `removeClass(target, ...classes)`
-
-Removes one or more classes.
-
-```js
-removeClass('#box', 'active');
-```
-
----
-
 ### `toggleClass(target, className, force?)`
 
-Toggles a class. Pass `true` or `false` as the third argument to force it on or off.
+Manipulate classes. `target` can be a selector string or an element.
 
 ```js
-toggleClass('#box', 'active');
-toggleClass('#box', 'active', true);   // always add
-toggleClass('#box', 'active', false);  // always remove
+domkit.addClass("#el", "active", "visible");
+domkit.removeClass(".card", "hidden");
+domkit.toggleClass("#menu", "open");         // toggle
+domkit.toggleClass("#menu", "open", true);   // force on
+domkit.toggleClass("#menu", "open", false);  // force off
 ```
 
 ---
 
 ### `append(target, html)`
-
-Inserts HTML at the end of an element's content.
-
-```js
-append('#list', '<li>Last item</li>');
-```
-
----
-
 ### `prepend(target, html)`
-
-Inserts HTML at the beginning of an element's content.
-
-```js
-prepend('#list', '<li>First item</li>');
-```
-
----
-
 ### `swap(target, html)`
-
-Replaces the entire inner content of an element.
-
-```js
-swap('#container', '<p>New content</p>');
-```
-
----
-
+### `pop(target)`
+### `shift(target)`
 ### `remove(target)`
 
-Removes element(s) from the DOM.
+Insert, replace, or remove DOM content.
 
 ```js
-remove('#old-banner');
-remove(someElement);
+domkit.append("#list", "<li>Last</li>");   // add to end
+domkit.pop("#list");                        // remove last child
+domkit.prepend("#list", "<li>First</li>"); // add to start
+domkit.shift("#list");                      // remove first child
+domkit.swap("#box", "<p>New content</p>");  // replaces innerHTML
+domkit.remove("#old");                      // removes element
+domkit.remove(".temp");                     // removes all matches
 ```
 
 ---
 
-### `render(tpl, data)`
+## Templates
 
-Interpolates a template string using `{{ }}` placeholders. Supports dot and bracket notation for nested paths. If `data` is an array, renders the template for each item and returns the joined result.
+### `render(template, data)`
+
+Fills `{{placeholder}}` tokens in a template string from an object or array. Supports dot-notation for nested paths.
 
 ```js
-// single object
-render('<p>{{ name }} is {{ age }}</p>', { name: 'Alice', age: 30 });
-// '<p>Alice is 30</p>'
+const tpl = "<li>{{name}} — {{role}}</li>";
 
-// array
-render('<li>{{ title }}</li>', [
-  { title: 'Home' },
-  { title: 'About' },
+// Object
+domkit.render(tpl, { name: "Alice", role: "Admin" });
+// → "<li>Alice — Admin</li>"
+
+// Array — concatenates all results
+domkit.render(tpl, [
+  { name: "Alice", role: "Admin" },
+  { name: "Bob",   role: "Editor" },
 ]);
-// '<li>Home</li><li>About</li>'
+// → "<li>Alice — Admin</li><li>Bob — Editor</li>"
 
-// nested path
-render('<span>{{ user.address.city }}</span>', { user: { address: { city: 'Fortaleza' } } });
-// '<span>Fortaleza</span>'
+// Nested paths
+domkit.render("<p>{{address.city}}</p>", {
+  address: { city: "New York" }
+});
+// → "<p>New York</p>"
 
-// bracket notation
-render('<span>{{ items[0] }}</span>', { items: ['first', 'second'] });
-// '<span>first</span>'
-```
-
-Combine with `append`, `prepend`, or `swap` to render into the DOM:
-
-```js
-var tpl = '<li>{{ name }}</li>';
-var users = [{ name: 'Alice' }, { name: 'Bob' }];
-
-swap('#user-list', render(tpl, users));
+// Array index access
+domkit.render("<p>{{tags[0]}}</p>", { tags: ["js", "dom"] });
+// → "<p>js</p>"
 ```
 
 ---
 
-### `redirect(url, newTab?)`
+## action
 
-Navigates to a URL. Pass `true` as the second argument to open in a new tab.
+Binds a DOM element to a fetch request and automatically renders the response. Works with any event — `submit`, `click`, `change`, etc.
 
 ```js
-redirect('/dashboard');
-redirect('https://example.com', true);
+domkit.action(selector, config)
+```
+
+### Config options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `on` | `string` | `"submit"` | DOM event that triggers the request |
+| `url` | `string` | — | Fetch URL; supports `:var` placeholders |
+| `method` | `string` | `"POST"` | HTTP method |
+| `targets` | `string[]` | `[]` | CSS selectors of elements to update |
+| `templates` | `string[]` | `[]` | Template string per target |
+| `keys` | `string[]` | `[]` | Dot-path into response per target (`""` = root) |
+| `loading` | `string` | `""` | Selector of element to show/hide while pending |
+| `cache` | `number` | `0` | Cache duration in ms (`0` = disabled) |
+| `auth` | `string\|null` | `null` | Bearer token or JS expression evaluated at runtime |
+| `varSource` | `"input"\|"query"` | `"input"` | Source for `:var` URL placeholder values |
+| `refetchInterval` | `number` | `0` | Auto re-fetch every N ms (`0` = disabled) |
+| `onSuccess` | `function` | `() => {}` | Called with parsed JSON response |
+| `onError` | `function` | `() => {}` | Called with the caught error |
+
+---
+
+### Basic form POST
+
+```html
+<form id="contact-form">
+  <input name="email" />
+  <input name="message" />
+  <button type="submit">Send</button>
+</form>
+<div id="result"></div>
+```
+
+```js
+domkit.action("#contact-form", {
+  url: "/api/contact",
+  method: "POST",
+  targets:   ["#result"],
+  templates: ["<p>{{status}}</p>"],
+  onSuccess: (data) => console.log("sent", data),
+  onError:   (err)  => console.error(err),
+});
+```
+
+---
+
+### GET search with input vars
+
+`:q` is resolved from `<input name="q">` inside the form.
+
+```html
+<form id="search">
+  <input name="q" placeholder="Search…" />
+  <button type="submit">Go</button>
+</form>
+<ul id="results"></ul>
+```
+
+```js
+domkit.action("#search", {
+  url: "/api/search?query=:q",
+  method: "GET",
+  varSource: "input",
+  targets:   ["#results"],
+  templates: ["<li>{{title}}</li>"],
+  keys:      ["items"],   // renders response.items
+});
+```
+
+---
+
+### GET with URL query string vars
+
+`:id` is read from `?id=42` in the current page URL.
+
+```js
+domkit.action("#load-btn", {
+  on: "click",
+  url: "/api/item/:id",
+  method: "GET",
+  varSource: "query",
+  targets:   ["#detail"],
+  templates: ["<h2>{{name}}</h2><p>{{description}}</p>"],
+});
+```
+
+---
+
+### Multiple targets from one response
+
+```js
+domkit.action("#dashboard-load", {
+  on: "click",
+  url: "/api/dashboard",
+  method: "GET",
+  targets:   ["#chart-list", "#summary-box"],
+  templates: [
+    "<li>{{label}}: {{value}}</li>",
+    "<p>Total: {{total}}</p>",
+  ],
+  keys: ["dataPoints", ""],  // "" renders from the response root
+});
+```
+
+---
+
+### Auth, loading, caching, and polling
+
+```js
+domkit.action("#stats", {
+  on: "click",
+  url: "/api/stats",
+  method: "GET",
+  auth: "localStorage.getItem('token')",  // evaluated at request time
+  loading: "#spinner",                    // hidden after fetch
+  cache: 30_000,                          // reuse result for 30s
+  refetchInterval: 60_000,               // re-fetch every 60s automatically
+  targets:   ["#stats-list"],
+  templates: ["<li>{{metric}}: {{value}}</li>"],
+  keys:      ["stats"],
+});
+```
+
+---
+
+## redirect
+
+```js
+domkit.redirect("/dashboard");                    // same tab
+domkit.redirect("https://example.com", true);     // new tab
 ```
 
 ---
@@ -233,26 +370,34 @@ redirect('https://example.com', true);
 <!DOCTYPE html>
 <html>
 <body>
-  <p>Count: <span id="count">0</span></p>
-  <button id="inc">+1</button>
-  <button id="reset">Reset</button>
+  <input id="search-input" name="q" placeholder="Search…" />
+  <button id="search-btn">Search</button>
+  <div id="loading" style="display:none">Loading…</div>
+  <ul id="results"></ul>
 
   <script src="domkit.js"></script>
   <script>
-    const { signal, select, on } = domkit;
+    const { signal, effect, action } = domkit;
 
-    const count = signal(0);
+    // Reactive query display
+    const query = signal("");
+    effect(() => {
+      console.log("query:", query.get());
+    }, [query]);
 
-    count.subscribe(function(value) {
-      select('#count').textContent = value;
-    });
+    domkit.on("#search-input", "input", (e) => query.set(e.target.value));
 
-    on('#inc', 'click', function() {
-      count.set(count.get() + 1);
-    });
-
-    on('#reset', 'click', function() {
-      count.set(0);
+    // Fetch on button click
+    action("#search-btn", {
+      on: "click",
+      url: "/api/search?q=:q",
+      method: "GET",
+      varSource: "input",
+      loading: "#loading",
+      targets: ["#results"],
+      templates: ["<li><strong>{{title}}</strong> — {{summary}}</li>"],
+      keys: ["hits"],
+      onError: (err) => domkit.swap("#results", `<li>Error: ${err.message}</li>`),
     });
   </script>
 </body>

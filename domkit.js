@@ -118,6 +118,16 @@
     el.innerHTML = html;
   }
 
+  function shift(target) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.firstElementChild?.remove();
+  }
+
+  function pop(target) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.lastElementChild?.remove();
+  }
+
   function render(tpl, data) {
     const resolve = (obj, path) =>
       path
@@ -307,6 +317,8 @@
     append,
     prepend,
     swap,
+    shift,
+    pop,
     render,
     redirect,
     action,
