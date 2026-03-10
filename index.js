@@ -1,0 +1,118 @@
+(function (global, factory) {
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = factory();
+  } else {
+    global.domkit = factory();
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+
+  function signal(initialValue) {
+    let value = initialValue;
+    const subscribers = new Set();
+
+    return {
+      get() {
+        return value;
+      },
+      set(newValue) {
+        if (newValue !== value) {
+          const prev = value;
+          value = newValue;
+          subscribers.forEach((fn) => fn(value, prev));
+        }
+        return this;
+      },
+      subscribe(fn) {
+        subscribers.add(fn);
+        return () => subscribers.delete(fn);
+      },
+    };
+  }
+
+  function select(selector, context) {
+    const root = context instanceof Element ? context : document;
+    return root.querySelector(selector);
+  }
+
+  function selectAll(selector, context) {
+    const root = context instanceof Element ? context : document;
+    return Array.from(root.querySelectorAll(selector));
+  }
+
+  function on(target, event, handler, options) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    el.addEventListener(event, handler, options);
+    return () => el.removeEventListener(event, handler, options);
+  }
+
+  function addClass(target, ...classes) {
+    const els = typeof target === "string" ? document.querySelectorAll(target) : [target];
+    els.forEach((el) => el.classList.add(...classes));
+  }
+
+  function removeClass(target, ...classes) {
+    const els = typeof target === "string" ? document.querySelectorAll(target) : [target];
+    els.forEach((el) => el.classList.remove(...classes));
+  }
+
+  function toggleClass(target, className, force) {
+    const els = typeof target === "string" ? document.querySelectorAll(target) : [target];
+    els.forEach((el) => el.classList.toggle(className, force));
+  }
+
+  function remove(target) {
+    const els = typeof target === "string" ? document.querySelectorAll(target) : [target];
+    els.forEach((el) => el.remove());
+  }
+
+  function add(target, html, position) {
+    const el = typeof target === "string" ? document.querySelector(target) : target;
+    const where = position || "beforeend";
+    el.insertAdjacentHTML(where, html);
+  }
+
+  function render(tpl, data) {
+    var resolve = function(obj, path) {
+      return path
+        .replace(/\[(\w+)\]/g, ".$1")
+        .split(".")
+        .reduce(function(acc, key) {
+          if (acc == null || typeof acc !== "object") return "";
+          return acc[key];
+        }, obj);
+    };
+
+    var parse = function(template, obj) {
+      return template.replace(/\{\{([^}]+)\}\}/g, function(_, expr) {
+        var value = resolve(obj, expr.trim());
+        return value == null || typeof value === "object" ? "" : value;
+      });
+    };
+
+    if (Array.isArray(data)) return data.map(function(item) { return parse(tpl, item); }).join("");
+    if (typeof data === "object" && data !== null) return parse(tpl, data);
+    return tpl;
+  }
+
+  function redirect(url, newTab) {
+    if (newTab) {
+      window.open(url, "_blank");
+    } else {
+      window.location.href = url;
+    }
+  }
+
+  return {
+    signal,
+    select,
+    selectAll,
+    on,
+    addClass,
+    removeClass,
+    toggleClass,
+    remove,
+    add,
+    render,
+    redirect,
+  };
+});
