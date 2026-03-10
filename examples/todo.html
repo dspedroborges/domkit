@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>tasks.</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f0e8;
+    --ink: #1a1714;
+    --muted: #9a9188;
+    --accent: #c84b2f;
+    --line: #d9d2c5;
+    --done: #b5ae a4;
+    --card: #faf7f2;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px 24px 120px;
+
+  }
+
+  header {
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 48px;
+  }
+
+  header h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2.8rem, 8vw, 4.2rem);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  header h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .meta {
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Input area */
+  .input-row {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+
+  #new-task {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--ink);
+    padding: 10px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #new-task::placeholder { color: var(--muted); }
+  #new-task:focus { border-color: var(--accent); }
+
+  #add-btn {
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    padding: 10px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  #add-btn:hover { background: var(--accent); }
+  #add-btn:active { transform: scale(0.97); }
+
+  /* Filters */
+  .filters {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+
+  .filter-btn {
+    background: none;
+    border: 1px solid transparent;
+    padding: 4px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { color: var(--ink); }
+  .filter-btn.active {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  /* List */
+  #task-list {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--card);
+    border-left: 2px solid transparent;
+    transition: border-color 0.15s, opacity 0.2s;
+    animation: slideIn 0.22s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-item:hover { border-left-color: var(--line); }
+  .task-item.done  { opacity: 0.45; }
+  .task-item.done .task-text { text-decoration: line-through; color: var(--muted); }
+
+  .task-check {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--muted);
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .task-check:hover { border-color: var(--accent); }
+
+  .task-item.done .task-check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .task-check svg { display: none; }
+  .task-item.done .task-check svg { display: block; }
+
+  .task-text {
+    flex: 1;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    transition: color 0.15s;
+  }
+
+  .task-delete {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color 0.15s, opacity 0.15s;
+  }
+
+  .task-item:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: var(--accent); }
+
+  /* Empty state */
+  #empty {
+    width: 100%;
+    max-width: 520px;
+    text-align: center;
+    padding: 56px 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    display: none;
+  }
+
+  #empty span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: 8px;
+    color: var(--line);
+  }
+
+  /* Footer */
+  footer {
+    width: 100%;
+    max-width: 520px;
+    margin-top: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  #clear-done {
+    background: none;
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s;
+  }
+
+  #clear-done:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>task<em>s.</em></h1>
+  <p class="meta" id="date-label"></p>
+</header>
+
+<div class="input-row">
+  <input id="new-task" type="text" placeholder="what needs doing?" maxlength="120" />
+  <button id="add-btn">+ add</button>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" data-filter="all">all</button>
+  <button class="filter-btn" data-filter="open">open</button>
+  <button class="filter-btn" data-filter="done">done</button>
+</div>
+
+<div id="task-list"></div>
+
+<div id="empty">
+  <span>nothing here</span>
+  all clear.
+</div>
+
+<footer>
+  <span id="count-label"></span>
+  <button id="clear-done">clear completed</button>
+</footer>
+
+<script src="../domkit.js"></script>
+<script>
+const { signal, computed, effect, on, select, selectAll, swap, append, render } = domkit;
+
+// ── State ──────────────────────────────────────────────────────────────
+const tasks  = signal(JSON.parse(localStorage.getItem("domkit-tasks") || "[]"));
+const filter = signal("all");
+let   nextId = Date.now();
+
+// ── Persistence ────────────────────────────────────────────────────────
+tasks.subscribe(v => localStorage.setItem("domkit-tasks", JSON.stringify(v)));
+
+// ── Derived ────────────────────────────────────────────────────────────
+const visible = computed(() => {
+  const f = filter.get();
+  const all = tasks.get();
+  if (f === "open") return all.filter(t => !t.done);
+  if (f === "done") return all.filter(t =>  t.done);
+  return all;
+}, [tasks, filter]);
+
+const remaining = computed(
+  () => tasks.get().filter(t => !t.done).length,
+  [tasks]
+);
+
+// ── Helpers ────────────────────────────────────────────────────────────
+const tpl = `
+  <div class="task-item {{doneClass}}" data-id="{{id}}">
+    <div class="task-check" data-action="toggle" data-id="{{id}}">
+      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+        <path d="M1 3l2 2 4-4" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <span class="task-text">{{text}}</span>
+    <button class="task-delete" data-action="delete" data-id="{{id}}">×</button>
+  </div>`;
+
+const toViewModel = t => ({ ...t, doneClass: t.done ? "done" : "" });
+
+function renderList() {
+  const items = visible.get();
+  const listEl  = select("#task-list");
+  const emptyEl = select("#empty");
+
+  if (items.length === 0) {
+    swap(listEl, "");
+    emptyEl.style.display = "block";
+  } else {
+    swap(listEl, render(tpl, items.map(toViewModel)));
+    emptyEl.style.display = "none";
+  }
+
+  const r = remaining.get();
+  swap("#count-label", `${r} item${r !== 1 ? "s" : ""} left`);
+}
+
+function addTask(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  tasks.set([...tasks.get(), { id: nextId++, text: trimmed, done: false }]);
+}
+
+function toggleTask(id) {
+  tasks.set(tasks.get().map(t => t.id === id ? { ...t, done: !t.done } : t));
+}
+
+function deleteTask(id) {
+  tasks.set(tasks.get().filter(t => t.id !== id));
+}
+
+// ── Effects ────────────────────────────────────────────────────────────
+effect(renderList, [visible]);
+
+// ── Events ────────────────────────────────────────────────────────────
+on("#add-btn", "click", () => {
+  const input = select("#new-task");
+  addTask(input.value);
+  input.value = "";
+  input.focus();
+});
+
+on("#new-task", "keydown", e => {
+  if (e.key === "Enter") {
+    addTask(e.target.value);
+    e.target.value = "";
+  }
+});
+
+// delegated events on the list
+on("#task-list", "click", e => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.action === "toggle") toggleTask(id);
+  if (btn.dataset.action === "delete") deleteTask(id);
+});
+
+selectAll(".filter-btn").forEach(btn => {
+  on(btn, "click", () => {
+    selectAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    filter.set(btn.dataset.filter);
+  });
+});
+
+on("#clear-done", "click", () => {
+  tasks.set(tasks.get().filter(t => !t.done));
+});
+
+// ── Date label ────────────────────────────────────────────────────────
+select("#date-label").textContent = new Date().toLocaleDateString("en-US", {
+  weekday: "long", month: "long", day: "numeric"
+}).toLowerCase();
+</script>
+
+</body>
+</html>

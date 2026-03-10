@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>journal — domkit × jsonplaceholder</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #1c1917;
+    --surface:  #242220;
+    --raised:   #2c2926;
+    --border:   #333030;
+    --ink:      #e8e0d5;
+    --muted:    #6b6560;
+    --soft:     #9a928a;
+    --gold:     #c9a84c;
+    --gold-dim: rgba(201, 168, 76, 0.1);
+    --red:      #c0392b;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inconsolata', monospace;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Masthead ── */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+
+  .masthead h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .masthead h1 em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .masthead-sub {
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .masthead-rule {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .api-badge {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    padding: 3px 8px;
+    opacity: 0.7;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    overflow-y: auto;
+    height: calc(100vh - 65px);
+    position: sticky;
+    top: 0;
+  }
+
+  .sidebar-section {
+    padding: 0 24px;
+  }
+
+  .sidebar-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* User select */
+  .user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .user-btn {
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 10px 12px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.78rem;
+    color: var(--soft);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 2px solid transparent;
+  }
+
+  .user-btn:hover { color: var(--ink); background: var(--raised); }
+
+  .user-btn.active {
+    color: var(--gold);
+    border-left-color: var(--gold);
+    background: var(--gold-dim);
+  }
+
+  .user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .user-btn.active .user-avatar {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .user-info { overflow: hidden; }
+  .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .user-handle { font-size: 0.65rem; color: var(--muted); }
+
+  /* Resource picker */
+  .resource-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .res-btn {
+    background: var(--raised);
+    border: 1px solid var(--border);
+    padding: 10px 8px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .res-btn:hover { color: var(--ink); border-color: var(--soft); }
+
+  .res-btn.active {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* URL preview */
+  .url-preview {
+    font-size: 0.65rem;
+    color: var(--muted);
+    background: var(--raised);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .url-preview span { color: var(--gold); }
+
+  /* Fetch button */
+  .fetch-btn {
+    width: 100%;
+    background: var(--gold);
+    border: none;
+    padding: 12px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bg);
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .fetch-btn:hover { opacity: 0.88; }
+  .fetch-btn:active { transform: scale(0.98); }
+
+  /* ── Main content ── */
+  .main {
+    padding: 32px 36px;
+    overflow-y: auto;
+    height: calc(100vh - 65px);
+  }
+
+  /* Loading */
+  #loading {
+    display: none;
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 14px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Empty / welcome */
+  #welcome {
+    padding: 80px 0;
+    text-align: center;
+  }
+
+  .welcome-glyph {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 5rem;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+
+  .welcome-text {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 2;
+  }
+
+  /* Results header */
+  .results-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    font-style: italic;
+  }
+
+  .results-count {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Cards grid */
+  #results { display: none; }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  /* Post card */
+  .post-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    transition: border-color 0.2s, transform 0.15s;
+    animation: cardIn 0.25s ease both;
+    cursor: default;
+  }
+
+  .post-card:hover {
+    border-color: var(--soft);
+    transform: translateY(-2px);
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .post-id {
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .post-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 10px;
+    color: var(--ink);
+  }
+
+  .post-body {
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: var(--soft);
+  }
+
+  /* Comment card */
+  .comment-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    padding: 16px 18px;
+    animation: cardIn 0.25s ease both;
+  }
+
+  .comment-email {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+
+  .comment-name {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+
+  .comment-body {
+    font-size: 0.73rem;
+    line-height: 1.7;
+    color: var(--soft);
+  }
+
+  /* Album card */
+  .album-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    animation: cardIn 0.25s ease both;
+    transition: border-color 0.15s;
+  }
+
+  .album-card:hover { border-color: var(--soft); }
+
+  .album-icon {
+    width: 38px;
+    height: 38px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    color: var(--gold);
+  }
+
+  .album-id {
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .album-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+
+  /* Todo card */
+  .todo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 13px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: cardIn 0.2s ease both;
+    transition: opacity 0.15s;
+  }
+
+  .todo-card.completed { opacity: 0.45; }
+
+  .todo-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .todo-card.completed .todo-check {
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .todo-check-inner {
+    display: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bg);
+  }
+
+  .todo-card.completed .todo-check-inner { display: block; }
+
+  .todo-title {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  .todo-card.completed .todo-title {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  /* Error */
+  #error-msg {
+    display: none;
+    padding: 20px;
+    background: rgba(192, 57, 43, 0.08);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 0.75rem;
+  }
+
+  /* stagger */
+  .cards-grid > *:nth-child(1)  { animation-delay: 0.02s; }
+  .cards-grid > *:nth-child(2)  { animation-delay: 0.04s; }
+  .cards-grid > *:nth-child(3)  { animation-delay: 0.06s; }
+  .cards-grid > *:nth-child(4)  { animation-delay: 0.08s; }
+  .cards-grid > *:nth-child(5)  { animation-delay: 0.10s; }
+  .cards-grid > *:nth-child(6)  { animation-delay: 0.12s; }
+  .cards-grid > *:nth-child(7)  { animation-delay: 0.14s; }
+  .cards-grid > *:nth-child(8)  { animation-delay: 0.16s; }
+  .cards-grid > *:nth-child(9)  { animation-delay: 0.18s; }
+  .cards-grid > *:nth-child(10) { animation-delay: 0.20s; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <h1>jour<em>nal</em></h1>
+    <span class="masthead-sub">domkit × jsonplaceholder</span>
+    <span class="masthead-rule"></span>
+    <span class="api-badge">live api</span>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">author</div>
+      <div class="user-list" id="user-list">
+        <!-- populated by action -->
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">resource</div>
+      <div class="resource-btns">
+        <button class="res-btn active" data-resource="posts">Posts</button>
+        <button class="res-btn" data-resource="comments">Comments</button>
+        <button class="res-btn" data-resource="albums">Albums</button>
+        <button class="res-btn" data-resource="todos">Todos</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">endpoint</div>
+      <div class="url-preview" id="url-preview">
+        <span>jsonplaceholder.typicode.com</span><br>
+        /users/<span id="preview-uid">?</span>/<span id="preview-res">posts</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="fetch-btn" id="fetch-btn">↓ fetch</button>
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div id="welcome">
+      <div class="welcome-glyph">¶</div>
+      <div class="welcome-text">
+        select an author<br>
+        choose a resource<br>
+        press fetch
+      </div>
+    </div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">fetching from api…</div>
+    </div>
+
+    <div id="error-msg"></div>
+
+    <div id="results">
+      <div class="results-header">
+        <span class="results-title" id="results-title">—</span>
+        <span class="results-count" id="results-count"></span>
+      </div>
+      <div class="cards-grid" id="cards"></div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../domkit.js"></script>
+<script>
+const { signal, effect, on, select, selectAll, swap, render, action } = domkit;
+
+// ── State ──────────────────────────────────────────────────────────
+const userId   = signal(null);
+const resource = signal("posts");
+
+// ── Templates ──────────────────────────────────────────────────────
+const TEMPLATES = {
+  posts: `
+    <div class="post-card">
+      <div class="post-id">post #{{id}}</div>
+      <div class="post-title">{{title}}</div>
+      <div class="post-body">{{body}}</div>
+    </div>`,
+  comments: `
+    <div class="comment-card">
+      <div class="comment-email">{{email}}</div>
+      <div class="comment-name">{{name}}</div>
+      <div class="comment-body">{{body}}</div>
+    </div>`,
+  albums: `
+    <div class="album-card">
+      <div class="album-icon">◈</div>
+      <div>
+        <div class="album-id">album #{{id}}</div>
+        <div class="album-title">{{title}}</div>
+      </div>
+    </div>`,
+  todos: `
+    <div class="todo-card {{completedClass}}">
+      <div class="todo-check"><div class="todo-check-inner"></div></div>
+      <div class="todo-title">{{title}}</div>
+    </div>`,
+};
+
+// ── Hidden trigger buttons ─────────────────────────────────────────
+// action() binds a URL at setup time, so we use two hidden buttons:
+// #__users-btn — fires once on boot to load the user list
+// #__res-btn   — re-bound on each fetch press with the current URL
+
+function makeHidden(id) {
+  const btn = document.createElement("button");
+  btn.id = id;
+  btn.style.display = "none";
+  document.body.appendChild(btn);
+  return btn;
+}
+
+const usersBtn = makeHidden("__users-btn");
+const resBtn   = makeHidden("__res-btn");
+
+// ── 1. Load users on boot ──────────────────────────────────────────
+action("#__users-btn", {
+  on: "click",
+  url: "https://jsonplaceholder.typicode.com/users",
+  method: "GET",
+  onSuccess(users) {
+    const tpl = `
+      <button class="user-btn" data-uid="{{id}}">
+        <div class="user-avatar">{{initials}}</div>
+        <div class="user-info">
+          <div class="user-name">{{name}}</div>
+          <div class="user-handle">@{{username}}</div>
+        </div>
+      </button>`;
+
+    swap("#user-list", render(tpl, users.map(u => ({
+      ...u,
+      initials: u.name.split(" ").map(w => w[0]).join("").slice(0, 2)
+    }))));
+
+    on("#user-list", "click", e => {
+      const btn = e.target.closest("[data-uid]");
+      if (!btn) return;
+      selectAll(".user-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      userId.set(Number(btn.dataset.uid));
+    });
+  },
+  onError() {
+    swap("#user-list", `<div style="padding:12px;font-size:0.7rem;color:var(--red)">failed to load users</div>`);
+  }
+});
+
+usersBtn.click(); // boot
+
+// ── 2. Resource buttons ────────────────────────────────────────────
+on(".resource-btns", "click", e => {
+  const btn = e.target.closest(".res-btn");
+  if (!btn) return;
+  selectAll(".res-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  resource.set(btn.dataset.resource);
+});
+
+// ── 3. URL preview ─────────────────────────────────────────────────
+effect(() => {
+  swap("#preview-uid", userId.get() ?? "?");
+  swap("#preview-res", resource.get());
+}, [userId, resource]);
+
+// ── 4. Fetch — re-binds action with the current URL then fires it ──
+on("#fetch-btn", "click", () => {
+  const uid = userId.get();
+  const res = resource.get();
+
+  if (!uid) {
+    select("#welcome").style.display   = "none";
+    select("#results").style.display   = "none";
+    select("#error-msg").style.display = "block";
+    swap("#error-msg", "↑ select an author first");
+    return;
+  }
+
+  select("#welcome").style.display   = "none";
+  select("#error-msg").style.display = "none";
+  select("#results").style.display   = "none";
+
+  // Re-bind action on the hidden button with the freshly-built URL
+  action("#__res-btn", {
+    on: "click",
+    url: `https://jsonplaceholder.typicode.com/users/${uid}/${res}`,
+    method: "GET",
+    loading: "#loading",
+    onSuccess(data) {
+      const userName = select(".user-btn.active")
+        ?.querySelector(".user-name")?.textContent ?? "Unknown";
+
+      const vm = res === "todos"
+        ? data.map(t => ({ ...t, completedClass: t.completed ? "completed" : "" }))
+        : data;
+
+      swap("#results-title", `${userName} — ${res}`);
+      swap("#results-count", `${data.length} item${data.length !== 1 ? "s" : ""}`);
+      swap("#cards", render(TEMPLATES[res], vm));
+      select("#results").style.display = "block";
+    },
+    onError(err) {
+      select("#error-msg").style.display = "block";
+      swap("#error-msg", `API error: ${err.message}`);
+    }
+  });
+
+  resBtn.click();
+});
+</script>
+</body>
+</html>

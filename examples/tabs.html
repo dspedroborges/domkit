@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>domkit — tabs</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Syne+Mono&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --ink: #f0ede8;
+    --muted: #555;
+    --accent: #e8ff47;
+    --accent-dim: rgba(232, 255, 71, 0.08);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+  }
+
+  /* ── Demo wrapper ── */
+  .demo {
+    width: 100%;
+    max-width: 580px;
+  }
+
+  .demo-label {
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .demo-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Tabs component ── */
+  .tabs {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  /* Tab strip */
+  .tab-list {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .tab-btn {
+    position: relative;
+    background: none;
+    border: none;
+    padding: 16px 24px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab-btn:hover { color: var(--ink); }
+
+  .tab-btn.active {
+    color: var(--accent);
+  }
+
+  /* sliding underline */
+  .tab-indicator {
+    position: absolute;
+    bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  /* Panels */
+  .tab-panels {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tab-panel {
+    display: none;
+    padding: 32px 28px;
+    animation: fadeUp 0.22s ease;
+  }
+
+  .tab-panel.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Panel content styles */
+  .tab-panel h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+
+  .tab-panel h2 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .tab-panel p {
+    font-size: 0.83rem;
+    line-height: 1.75;
+    color: #888;
+    max-width: 420px;
+    margin-bottom: 24px;
+  }
+
+  /* Code snippet */
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: #aaa;
+    overflow-x: auto;
+  }
+
+  .code-block .k { color: var(--accent); }
+  .code-block .s { color: #e87b47; }
+  .code-block .c { color: #444; }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .stat {
+    background: var(--bg);
+    padding: 20px 16px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Settings list */
+  .settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .setting-row:last-child { border-bottom: none; }
+
+  .setting-name {
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .setting-desc {
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    border: none;
+  }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle.on { background: var(--accent-dim); }
+  .toggle.on::after { transform: translateX(16px); background: var(--accent); }
+
+  /* Bottom bar */
+  .tab-footer {
+    border-top: 1px solid var(--border);
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tab-counter {
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .tab-counter span { color: var(--accent); }
+
+  .tab-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .tab-dot.active { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <p class="demo-label">domkit / tabs component</p>
+
+  <div class="tabs" id="my-tabs">
+
+    <div class="tab-list" id="tab-list">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="stats">Stats</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+      <div class="tab-indicator" id="tab-indicator"></div>
+    </div>
+
+    <div class="tab-panels">
+
+      <div class="tab-panel active" data-panel="overview">
+        <h2>built with <em>domkit</em></h2>
+        <p>A tabs component wired entirely through signals and DOM helpers — no framework, no build step. The active tab is reactive state; everything else follows.</p>
+        <div class="code-block">
+<span class="c">// active tab as a signal</span>
+<span class="k">const</span> active = domkit.<span class="k">signal</span>(<span class="s">'overview'</span>);
+
+<span class="c">// switch tab on click</span>
+domkit.<span class="k">on</span>(<span class="s">'#tab-list'</span>, <span class="s">'click'</span>, e => {
+  <span class="k">const</span> btn = e.target.closest(<span class="s">'[data-tab]'</span>);
+  <span class="k">if</span> (btn) active.<span class="k">set</span>(btn.dataset.tab);
+});
+
+<span class="c">// react to changes</span>
+domkit.<span class="k">effect</span>(() => syncUI(active.<span class="k">get</span>()), [active]);
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="stats">
+        <h2>by the <em>numbers</em></h2>
+        <p>domkit keeps its footprint tiny while covering the reactive + DOM surface area most projects actually need.</p>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-val">4.8</div>
+            <div class="stat-label">kb min</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">2.0</div>
+            <div class="stat-label">kb gzip</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">0</div>
+            <div class="stat-label">deps</div>
+          </div>
+        </div>
+        <div class="code-block">
+<span class="c">// 16 exports, one file</span>
+{ signal, computed, effect, once, batch,
+  combine, select, selectAll, on, off,
+  addClass, removeClass, toggleClass,
+  swap, render, action, redirect }
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="settings">
+        <h2>toggle <em>options</em></h2>
+        <p>Settings wired to individual signals. Each toggle is independent reactive state — flip one without touching the others.</p>
+        <div class="settings-list" id="settings-list"></div>
+      </div>
+
+    </div>
+
+    <div class="tab-footer">
+      <span class="tab-counter">tab <span id="tab-index">1</span> / 3</span>
+      <div class="tab-dots" id="tab-dots"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../domkit.js"></script>
+<script>
+const { signal, effect, on, select, selectAll, addClass, removeClass, toggleClass, swap, render } = domkit;
+
+// ── Tab list config ──────────────────────────────────────────────────
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "stats",    label: "Stats"    },
+  { id: "settings", label: "Settings" },
+];
+
+// ── State ────────────────────────────────────────────────────────────
+const active = signal("overview");
+
+// ── Settings panel ───────────────────────────────────────────────────
+const settingsDefs = [
+  { key: "animations", label: "Animations",    desc: "panel fade + slide", on: true  },
+  { key: "persist",    label: "Persist state", desc: "remember active tab", on: false },
+  { key: "keyboard",   label: "Keyboard nav",  desc: "← → arrow keys",     on: true  },
+];
+
+const settingSignals = Object.fromEntries(
+  settingsDefs.map(s => [s.key, signal(s.on)])
+);
+
+// Render settings rows
+const settingTpl = `
+  <div class="setting-row">
+    <div>
+      <div class="setting-name">{{label}}</div>
+      <div class="setting-desc">{{desc}}</div>
+    </div>
+    <button class="toggle {{onClass}}" data-setting="{{key}}"></button>
+  </div>`;
+
+swap("#settings-list", render(settingTpl, settingsDefs.map(s => ({
+  ...s,
+  onClass: s.on ? "on" : ""
+}))));
+
+// Wire toggle clicks
+on("#settings-list", "click", e => {
+  const btn = e.target.closest("[data-setting]");
+  if (!btn) return;
+  const key = btn.dataset.setting;
+  const sig = settingSignals[key];
+  sig.set(!sig.get());
+  toggleClass(btn, "on");
+});
+
+// ── Dots ─────────────────────────────────────────────────────────────
+const dotTpl = `<button class="tab-dot {{activeClass}}" data-tab="{{id}}"></button>`;
+swap("#tab-dots", render(dotTpl, TABS.map(t => ({
+  ...t,
+  activeClass: t.id === active.get() ? "active" : ""
+}))));
+
+on("#tab-dots", "click", e => {
+  const dot = e.target.closest("[data-tab]");
+  if (dot) active.set(dot.dataset.tab);
+});
+
+// ── Indicator position ───────────────────────────────────────────────
+function moveIndicator(id) {
+  const btn = select(`[data-tab="${id}"]`, select("#tab-list"));
+  const indicator = select("#tab-indicator");
+  if (!btn || !indicator) return;
+  indicator.style.left  = btn.offsetLeft + "px";
+  indicator.style.width = btn.offsetWidth + "px";
+}
+
+// ── Sync all UI to active signal ─────────────────────────────────────
+effect(() => {
+  const id  = active.get();
+  const idx = TABS.findIndex(t => t.id === id);
+
+  // buttons
+  selectAll(".tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === id);
+  });
+
+  // panels
+  selectAll(".tab-panel").forEach(panel => {
+    panel.classList.toggle("active", panel.dataset.panel === id);
+  });
+
+  // indicator
+  moveIndicator(id);
+
+  // counter
+  swap("#tab-index", idx + 1);
+
+  // dots
+  selectAll(".tab-dot").forEach((dot, i) => {
+    dot.classList.toggle("active", i === idx);
+  });
+}, [active]);
+
+// ── Tab click ────────────────────────────────────────────────────────
+on("#tab-list", "click", e => {
+  const btn = e.target.closest("[data-tab]");
+  if (btn) active.set(btn.dataset.tab);
+});
+
+// ── Keyboard nav (respects signal) ───────────────────────────────────
+on(document, "keydown", e => {
+  if (!settingSignals.keyboard.get()) return;
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const idx = TABS.findIndex(t => t.id === active.get());
+  if (e.key === "ArrowLeft")  active.set(TABS[(idx - 1 + TABS.length) % TABS.length].id);
+  if (e.key === "ArrowRight") active.set(TABS[(idx + 1) % TABS.length].id);
+});
+
+// ── Recalc indicator on resize ───────────────────────────────────────
+on(window, "resize", () => moveIndicator(active.get()));
+</script>
+</body>
+</html>
