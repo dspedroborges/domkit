@@ -168,9 +168,6 @@
       loading = "",
       cache = 0,
       auth = null,
-      // "input" (default) — find <input name="var"> in the form/DOM
-      // "query"           — read from current URL search params
-      varSource = "input",
       refetchInterval = 0,
       onSuccess = () => {},
       onError = () => {},
@@ -205,23 +202,20 @@
       try { return eval(auth); } catch { return auth; }
     };
 
-    const resolveVars = (rawUrl, formData) => {
+    const resolveVars = (rawUrl) => {
       const urlParams = new URLSearchParams(window.location.search);
-      const bodyData = { ...formData };
       let finalUrl = rawUrl;
 
       const placeholders = [...rawUrl.matchAll(/:(\w+)/g)].map(m => m[1]);
-      for (const key of placeholders) {
-        const value = varSource === "query"
-          ? urlParams.get(key)
-          : (formData[key] ?? select(`[name="${key}"]`)?.value);
 
+      for (const key of placeholders) {
+        const value = urlParams.get(key);
         if (value != null) {
           finalUrl = finalUrl.replace(":" + key, encodeURIComponent(value));
-          delete bodyData[key];
         }
       }
-      return { finalUrl, bodyData };
+
+      return finalUrl;
     };
 
     const execute = async () => {
@@ -229,22 +223,27 @@
 
       try {
         const formData = {};
+
         if (el.tagName === "FORM") {
           new FormData(el).forEach((v, k) => { formData[k] = v; });
-        } else {
-          formData[el.name || "value"] = el.value;
+        } else if (el.name) {
+          formData[el.name] = el.value;
         }
 
-        const { finalUrl, bodyData } = resolveVars(url, formData);
+        const finalUrl = resolveVars(url);
+        const bodyData = { ...formData };
+
         const isGet = method.toUpperCase() === "GET";
 
         let fetchUrl = finalUrl;
+
         if (isGet) {
           const params = new URLSearchParams(bodyData).toString();
           if (params) fetchUrl += (fetchUrl.includes("?") ? "&" : "?") + params;
         }
 
         const cacheKey = "actionCache:" + fetchUrl;
+
         if (cache) {
           try {
             const stored = localStorage.getItem(cacheKey);
@@ -263,6 +262,7 @@
 
         const headers = {};
         if (!isGet) headers["Content-Type"] = "application/json";
+
         const token = getToken();
         if (token) headers["Authorization"] = "Bearer " + token;
 
@@ -273,6 +273,7 @@
         });
 
         if (!res.ok) throw new Error("Status: " + res.status);
+
         const result = await res.json();
 
         if (cache) {
@@ -283,8 +284,11 @@
         }
 
         applyRender(result);
+
         if (loadingEl) loadingEl.style.display = "none";
+
         onSuccess(result);
+
       } catch (err) {
         if (loadingEl) loadingEl.style.display = "none";
         onError(err);
