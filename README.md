@@ -1,146 +1,203 @@
 # domkit
 
-A lightweight, dependency-free DOM utility library with signals-based reactivity, templating, and data fetching — all in one small file.
-
-- **Signals** — reactive state with subscriptions, computed values, and effects
-- **DOM helpers** — selection, manipulation, classes, events
-- **Templates** — `{{placeholder}}` rendering from objects or arrays
-- **`action`** — declarative fetch → render pipeline with caching, auth, and polling
-
----
-
-## Install
-
-**`domkit.min.js`** — 5.1kb · 2.0kb gzipped
-
-### Browser (UMD)
+A small browser utility library for reactive signals, DOM manipulation, templating, and fetch pipelines. No build step, no dependencies, no framework.
 
 ```html
-<script src="domkit.min.js"></script>
+<script src="domkit.js"></script>
 <script>
-  const { signal, action, render } = domkit;
+  const { signal, effect, on, swap, render, action } = domkit
 </script>
 ```
 
-### Node / Bundler
+---
 
-```js
-const domkit = require("./domkit");
-// or
-import domkit from "./domkit.js";
-```
+## Table of contents
+
+- [Signals](#signals)
+- [DOM selection](#dom-selection)
+- [Events](#events)
+- [Class manipulation](#class-manipulation)
+- [DOM mutation](#dom-mutation)
+- [Templating](#templating)
+- [Navigation](#navigation)
+- [Action](#action)
 
 ---
 
-## Signals & Reactivity
+## Signals
+
+A lightweight reactivity system. Signals hold a value and notify subscribers when it changes.
 
 ### `signal(initialValue)`
 
-Creates a reactive value with get/set/subscribe.
+Creates a reactive value.
 
 ```js
-const count = domkit.signal(0);
+const count = signal(0)
 
-count.get();                          // 0
-count.set(5);                         // update
-count.subscribe((next, prev) => {     // react to changes
-  console.log(prev, "→", next);
-});
+count.get()       // 0
+count.set(1)      // notifies subscribers
+count.get()       // 1
+```
+
+`set()` is chainable and only fires subscribers if the value actually changed (`!==`).
+
+```js
+count.set(2).set(3)
+```
+
+**Subscribing manually:**
+
+```js
+const unsub = count.subscribe((value) => {
+  console.log("count changed to", value)
+})
+
+count.set(5)  // logs "count changed to 5"
+unsub()       // stop listening
 ```
 
 ---
 
 ### `computed(fn, deps)`
 
-Derives a read-only signal from other signals.
+Creates a read-only signal derived from other signals. Re-evaluates automatically when any dependency changes.
 
 ```js
-const count  = domkit.signal(4);
-const double = domkit.computed(() => count.get() * 2, [count]);
+const a = signal(2)
+const b = signal(3)
 
-double.get(); // 8
-count.set(10);
-double.get(); // 20
+const sum = computed(() => a.get() + b.get(), [a, b])
+
+sum.get()  // 5
+a.set(10)
+sum.get()  // 13
 ```
+
+`computed` returns `{ get, subscribe }` — you can read it and react to it, but not set it directly.
 
 ---
 
 ### `effect(fn, deps)`
 
-Runs a side effect immediately and again whenever a dependency changes.
+Runs `fn` immediately and re-runs it whenever any dependency changes.
 
 ```js
-const name = domkit.signal("Alice");
+const name = signal("Alice")
 
-domkit.effect(() => {
-  document.title = `Hello, ${name.get()}`;
-}, [name]);
+effect(() => {
+  document.title = `Hello, ${name.get()}`
+}, [name])
+
+// title is set to "Hello, Alice" immediately
+name.set("Bob")
+// title updates to "Hello, Bob"
 ```
 
 ---
 
 ### `once(signal, fn)`
 
-Fires a callback exactly once on the next change, then unsubscribes.
+Runs `fn` the next time the signal changes, then automatically unsubscribes.
 
 ```js
-domkit.once(count, (next, prev) => {
-  console.log("changed once:", prev, "→", next);
-});
+const ready = signal(false)
+
+once(ready, (value) => {
+  console.log("fired once:", value)
+})
+
+ready.set(true)   // logs "fired once: true"
+ready.set(false)  // nothing — already unsubscribed
 ```
 
 ---
 
 ### `batch(fn)`
 
-Groups multiple signal updates so subscribers are only notified once.
+Groups multiple signal updates into a single notification pass. Without `batch`, each `set()` fires all subscribers immediately. With `batch`, subscribers are deferred until the function completes — useful when updating several signals that drive the same render.
 
 ```js
-domkit.batch(() => {
-  firstName.set("Jane");
-  lastName.set("Doe");
-});
-// subscribers notified once, after both updates
+const x = signal(0)
+const y = signal(0)
+
+effect(() => {
+  console.log(x.get(), y.get())
+}, [x, y])
+// logs "0 0" immediately
+
+// without batch: logs twice ("1 0", then "1 1")
+x.set(1)
+y.set(1)
+
+// with batch: logs once ("2 2")
+batch(() => {
+  x.set(2)
+  y.set(2)
+})
 ```
 
 ---
 
 ### `combine(signals, fn)`
 
-Creates a derived signal from multiple signals using a combiner function.
+Creates a derived signal that maps over multiple signals at once. Similar to `computed` but takes an explicit array of source signals and a combining function.
 
 ```js
-const a   = domkit.signal(3);
-const b   = domkit.signal(4);
-const sum = domkit.combine([a, b], (x, y) => x + y);
+const firstName = signal("Ada")
+const lastName  = signal("Lovelace")
 
-sum.get(); // 7
+const fullName = combine([firstName, lastName], (f, l) => `${f} ${l}`)
+
+fullName.get()      // "Ada Lovelace"
+lastName.set("Byron")
+fullName.get()      // "Ada Byron"
 ```
 
 ---
 
-## DOM
+## DOM selection
 
 ### `select(selector, context?)`
-### `selectAll(selector, context?)`
 
-Query the DOM, optionally scoped to a parent element.
+Returns the first matching element. `context` defaults to `document`.
 
 ```js
-const el   = domkit.select(".card");
-const list = domkit.selectAll("li", myList); // scoped
+const btn    = select("#submit")
+const input  = select("input[name='email']")
+const nested = select(".item", someParentEl)
+```
+
+### `selectAll(selector, context?)`
+
+Returns an array (not a NodeList) of all matching elements.
+
+```js
+const items = selectAll(".card")
+items.forEach(el => el.style.opacity = "0.5")
 ```
 
 ---
+
+## Events
 
 ### `on(target, event, handler, options?)`
 
-Adds an event listener. Returns an unsubscribe function.
+Adds an event listener. `target` can be a DOM element or a CSS selector string. Returns an unsubscribe function.
 
 ```js
-const off = domkit.on("#btn", "click", () => console.log("clicked"));
-off(); // removes the listener
+const off = on("#btn", "click", () => console.log("clicked"))
+
+off()  // removes the listener
 ```
+
+```js
+on(document, "keydown", (e) => {
+  if (e.key === "Escape") closeModal()
+})
+```
+
+If the selector doesn't match anything, `on` returns a no-op function and does nothing — no error thrown.
 
 ---
 
@@ -149,263 +206,505 @@ off(); // removes the listener
 Removes an event listener directly.
 
 ```js
-domkit.off("#btn", "click", myHandler);
+const handler = () => console.log("clicked")
+on("#btn", "click", handler)
+off("#btn", "click", handler)
 ```
 
+Prefer the unsub function returned by `on` over calling `off` manually — it's less error-prone.
+
 ---
+
+## Class manipulation
+
+All three functions accept either a DOM element or a CSS selector string. Selector strings match all elements on the page (like `querySelectorAll`).
 
 ### `addClass(target, ...classes)`
+
+```js
+addClass("#menu", "open", "visible")
+addClass(el, "active")
+```
+
 ### `removeClass(target, ...classes)`
+
+```js
+removeClass("#menu", "open")
+```
+
 ### `toggleClass(target, className, force?)`
 
-Manipulate classes. `target` can be a selector string or an element.
+Toggles a class. Pass `true` or `false` as `force` to add or remove unconditionally.
 
 ```js
-domkit.addClass("#el", "active", "visible");
-domkit.removeClass(".card", "hidden");
-domkit.toggleClass("#menu", "open");         // toggle
-domkit.toggleClass("#menu", "open", true);   // force on
-domkit.toggleClass("#menu", "open", false);  // force off
+toggleClass("#menu", "open")          // toggle
+toggleClass("#menu", "open", true)    // always add
+toggleClass("#menu", "open", false)   // always remove
+toggleClass(".item", "selected", isSelected)  // conditional
 ```
 
 ---
+
+## DOM mutation
 
 ### `append(target, html)`
-### `prepend(target, html)`
-### `swap(target, html)`
-### `pop(target)`
-### `shift(target)`
-### `remove(target)`
 
-Insert, replace, or remove DOM content.
+Inserts HTML at the end of the target element.
 
 ```js
-domkit.append("#list", "<li>Last</li>");   // add to end
-domkit.pop("#list");                        // remove last child
-domkit.prepend("#list", "<li>First</li>"); // add to start
-domkit.shift("#list");                      // remove first child
-domkit.swap("#box", "<p>New content</p>");  // replaces innerHTML
-domkit.remove("#old");                      // removes element
-domkit.remove(".temp");                     // removes all matches
+append("#list", "<li>New item</li>")
+```
+
+### `prepend(target, html)`
+
+Inserts HTML at the beginning of the target element.
+
+```js
+prepend("#list", "<li>First item</li>")
+```
+
+### `swap(target, html)`
+
+Replaces the entire inner content of the target element.
+
+```js
+swap("#content", "<p>Loaded.</p>")
+swap("#content", "")  // clear it
+```
+
+### `shift(target)`
+
+Removes the first child element.
+
+```js
+shift("#list")  // removes the first <li>
+```
+
+### `pop(target)`
+
+Removes the last child element.
+
+```js
+pop("#list")  // removes the last <li>
+```
+
+### `remove(target)`
+
+Removes the element(s) from the DOM entirely. Accepts a selector (removes all matches) or a single element.
+
+```js
+remove("#toast")
+remove(".stale-item")  // removes all matches
+remove(el)
 ```
 
 ---
 
-## Templates
+## Templating
 
 ### `render(template, data)`
 
-Fills `{{placeholder}}` tokens in a template string from an object or array. Supports dot-notation for nested paths.
+Fills `{{placeholder}}` tokens in a template string with values from `data`. Supports dot-paths and bracket notation for nested access.
+
+**Object data:**
 
 ```js
-const tpl = "<li>{{name}} — {{role}}</li>";
+const html = render(
+  "<li>{{name}} — {{role}}</li>",
+  { name: "Alice", role: "Admin" }
+)
+// "<li>Alice — Admin</li>"
+```
 
-// Object
-domkit.render(tpl, { name: "Alice", role: "Admin" });
-// → "<li>Alice — Admin</li>"
+**Nested paths:**
 
-// Array — concatenates all results
-domkit.render(tpl, [
-  { name: "Alice", role: "Admin" },
-  { name: "Bob",   role: "Editor" },
-]);
-// → "<li>Alice — Admin</li><li>Bob — Editor</li>"
+```js
+render("{{user.name}} ({{user.address.city}})", {
+  user: { name: "Bob", address: { city: "Oslo" } }
+})
+// "Bob (Oslo)"
+```
 
-// Nested paths
-domkit.render("<p>{{address.city}}</p>", {
-  address: { city: "New York" }
-});
-// → "<p>New York</p>"
+**Array notation:**
 
-// Array index access
-domkit.render("<p>{{tags[0]}}</p>", { tags: ["js", "dom"] });
-// → "<p>js</p>"
+```js
+render("{{items[0].label}}", { items: [{ label: "First" }] })
+// "First"
+```
+
+**Array data — renders one copy per item, joined:**
+
+```js
+const html = render(
+  "<li class='item'>{{name}}</li>",
+  [
+    { name: "Alice" },
+    { name: "Bob" },
+    { name: "Carol" },
+  ]
+)
+// "<li class='item'>Alice</li><li class='item'>Bob</li><li class='item'>Carol</li>"
+```
+
+Missing or `null` values render as empty string. Object values render as empty string.
+
+---
+
+## Navigation
+
+### `redirect(url, newTab?)`
+
+```js
+redirect("/dashboard")            // same tab
+redirect("https://example.com", true)  // new tab
 ```
 
 ---
 
-## action
+## Declarative actions
 
-Binds a DOM element to a fetch request and automatically renders the response. Works with any event — `submit`, `click`, `change`, etc.
+Any element with an `action-url` attribute is automatically wired up when the page loads — no JavaScript required. This is the same `action()` function under the hood, driven by HTML attributes instead of a config object.
+
+```html
+<form
+  action-url="/api/search"
+  action-method="GET"
+  action-on="submit"
+  action-targets="#results"
+  action-templates="<li>{{title}}</li>"
+  action-keys="items"
+  action-loading="#spinner"
+>
+  <input name="q" placeholder="Search…" />
+  <button>Go</button>
+</form>
+
+<div id="spinner" style="display:none">Loading…</div>
+<ul id="results"></ul>
+```
+
+Import domkit and it just works — no init call needed.
+
+### Attributes
+
+| Attribute | Equivalent config key | Notes |
+|---|---|---|
+| `action-url` | `url` | Required. Triggers auto-wiring. |
+| `action-method` | `method` | Default: `POST` |
+| `action-on` | `on` | Default: `submit` |
+| `action-targets` | `targets` | Comma-separated selectors |
+| `action-templates` | `templates` | Comma-separated templates |
+| `action-keys` | `keys` | Comma-separated dot-paths |
+| `action-loading` | `loading` | Selector of loading element |
+| `action-cache` | `cache` | Duration in ms |
+| `action-auth` | `auth` | Token string or JS expression |
+| `action-refetch` | `refetchInterval` | Interval in ms |
+| `action-success` | `onSuccess` | JS expression, `data` is in scope |
+| `action-error` | `onError` | JS expression, `err` is in scope |
+
+### Multi-value attributes
+
+`action-targets`, `action-templates`, and `action-keys` are comma-separated when you need multiple targets:
+
+```html
+<button
+  action-url="/api/users"
+  action-method="GET"
+  action-on="click"
+  action-targets="#count,        #list"
+  action-templates="{{total}} users, <li>{{name}}</li>"
+  action-keys="meta,             items"
+>Load</button>
+```
+
+### Callbacks via expressions
+
+`action-success` and `action-error` are JavaScript expressions evaluated when the request completes. `data` and `err` are in scope respectively:
+
+```html
+<form
+  action-url="/api/login"
+  action-success="redirect('/dashboard')"
+  action-error="swap('#msg', '<p>Login failed: ' + err.message + '</p>')"
+>
+  <input name="email" />
+  <input name="password" type="password" />
+  <button>Sign in</button>
+</form>
+```
+
+```html
+<button
+  action-url="/api/item/:id"
+  action-method="DELETE"
+  action-on="click"
+  action-success="remove('#item-' + data.id)"
+>Delete</button>
+```
+
+### Dynamic content
+
+Elements added to the DOM after page load (e.g. via `swap()` or `append()`) are also picked up automatically — a `MutationObserver` watches for new `[action-url]` elements and wires them immediately.
 
 ```js
-domkit.action(selector, config)
+// This newly inserted element will be auto-wired, no extra call needed
+append("#container", `
+  <button
+    action-url="/api/posts"
+    action-method="GET"
+    action-on="click"
+    action-targets="#posts"
+    action-templates="<li>{{title}}</li>"
+    action-keys="posts"
+  >Load posts</button>
+`)
+```
+
+### `initActions(root?)`
+
+Manually re-scan for unwired `[action-url]` elements. Useful after a large DOM replacement that bypasses the MutationObserver (e.g. setting `innerHTML` directly on a container). Pass a root element to limit the scan, or call with no argument to scan the whole document.
+
+```js
+swap("#app", newHtml)
+initActions(select("#app"))  // wire anything new inside #app
+```
+
+Elements already wired are skipped — safe to call multiple times.
+
+---
+
+## Action
+
+### `action(selector, config)`
+
+Binds a fetch pipeline to an element. When the element triggers `event`, domkit collects data, fetches `url`, and renders the response into target elements. Designed for progressive enhancement — forms, buttons, or any element.
+
+```js
+action("#search-form", {
+  on:        "submit",
+  url:       "/api/search",
+  method:    "GET",
+  targets:   ["#results"],
+  templates: ["<li>{{title}} — {{author}}</li>"],
+  keys:      ["items"],
+})
 ```
 
 ### Config options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `on` | `string` | `"submit"` | DOM event that triggers the request |
-| `url` | `string` | — | Fetch URL; supports `:var` placeholders |
-| `method` | `string` | `"POST"` | HTTP method |
-| `targets` | `string[]` | `[]` | CSS selectors of elements to update |
-| `templates` | `string[]` | `[]` | Template string per target |
-| `keys` | `string[]` | `[]` | Dot-path into response per target (`""` = root) |
-| `loading` | `string` | `""` | Selector of element to show/hide while pending |
-| `cache` | `number` | `0` | Cache duration in ms (`0` = disabled) |
-| `auth` | `string\|null` | `null` | Bearer token or JS expression evaluated at runtime |
-| `varSource` | `"input"\|"query"` | `"input"` | Source for `:var` URL placeholder values |
-| `refetchInterval` | `number` | `0` | Auto re-fetch every N ms (`0` = disabled) |
-| `onSuccess` | `function` | `() => {}` | Called with parsed JSON response |
-| `onError` | `function` | `() => {}` | Called with the caught error |
+| Option | Default | Description |
+|---|---|---|
+| `on` | `"submit"` | Event that triggers the fetch |
+| `url` | — | Fetch URL. Supports `:param` placeholders (see below) |
+| `method` | `"POST"` | HTTP method |
+| `targets` | `[]` | CSS selectors of elements to update after fetch |
+| `templates` | `[]` | Template string per target (uses `render()` syntax) |
+| `keys` | `[]` | Dot-path into the response per target (e.g. `"data.items"`) |
+| `loading` | `""` | Selector of an element to show during fetch, hide after |
+| `cache` | `0` | Cache duration in ms. `0` = disabled |
+| `auth` | `null` | Bearer token string or JS expression that returns one |
+| `refetchInterval` | `0` | Auto re-fetch interval in ms. `0` = disabled |
+| `onSuccess` | `() => {}` | Callback fired with the parsed response on success |
+| `onError` | `() => {}` | Callback fired with the error on failure |
 
----
+### URL placeholders
 
-### Basic form POST
+`:param` tokens in the URL are replaced with matching values from the **current page's query string**.
+
+```
+Page URL:  /reports?userId=42&month=3
+Action URL: /api/users/:userId/reports/:month
+Resolved:  /api/users/42/reports/3
+```
+
+```js
+action("#load-btn", {
+  on:     "click",
+  url:    "/api/users/:userId/posts",
+  method: "GET",
+  targets:   ["#posts"],
+  templates: ["<div>{{title}}</div>"],
+  keys:      ["posts"],
+})
+```
+
+Placeholders that have no matching query param are left as-is in the URL.
+
+### Rendering targets
+
+Each item in `targets`, `templates`, and `keys` corresponds by index. The response is first narrowed by `keys[i]` (dot-path into the JSON), then passed to `render(templates[i], narrowedData)`, then injected into `targets[i]` via `swap`.
+
+```js
+// Response: { meta: { total: 120 }, items: [{ name: "Alice" }, ...] }
+
+action("#load", {
+  url:       "/api/users",
+  method:    "GET",
+  targets:   ["#count",          "#list"],
+  templates: ["{{total}} users", "<li>{{name}}</li>"],
+  keys:      ["meta",            "items"],
+})
+// #count → "120 users"
+// #list  → "<li>Alice</li><li>Bob</li>..."
+```
+
+### Loading state
 
 ```html
-<form id="contact-form">
-  <input name="email" />
-  <input name="message" />
-  <button type="submit">Send</button>
-</form>
-<div id="result"></div>
+<div id="spinner" style="display:none">Loading…</div>
 ```
 
 ```js
-domkit.action("#contact-form", {
-  url: "/api/contact",
-  method: "POST",
-  targets:   ["#result"],
-  templates: ["<p>{{status}}</p>"],
-  onSuccess: (data) => console.log("sent", data),
-  onError:   (err)  => console.error(err),
-});
+action("#btn", {
+  url:     "/api/data",
+  loading: "#spinner",
+  // spinner is shown at fetch start, hidden on success or error
+})
 ```
 
----
+### Caching
 
-### GET search with input vars
-
-`:q` is resolved from `<input name="q">` inside the form.
-
-```html
-<form id="search">
-  <input name="q" placeholder="Search…" />
-  <button type="submit">Go</button>
-</form>
-<ul id="results"></ul>
-```
+Responses are cached in `localStorage` by URL. `cache` is a duration in milliseconds.
 
 ```js
-domkit.action("#search", {
-  url: "/api/search?query=:q",
+action("#btn", {
+  url:    "/api/config",
   method: "GET",
-  varSource: "input",
-  targets:   ["#results"],
-  templates: ["<li>{{title}}</li>"],
-  keys:      ["items"],   // renders response.items
-});
+  cache:  60_000,  // cache for 1 minute
+})
 ```
 
----
+### Auth
 
-### GET with URL query string vars
-
-`:id` is read from `?id=42` in the current page URL.
+Pass a bearer token directly or as a JS expression (evaluated at request time, useful for reading from localStorage or a global variable).
 
 ```js
-domkit.action("#load-btn", {
-  on: "click",
-  url: "/api/item/:id",
-  method: "GET",
-  varSource: "query",
-  targets:   ["#detail"],
-  templates: ["<h2>{{name}}</h2><p>{{description}}</p>"],
-});
+action("#save", {
+  url:  "/api/save",
+  auth: "localStorage.getItem('token')",
+})
+
+// or a literal token
+action("#save", {
+  url:  "/api/save",
+  auth: "my-static-token",
+})
 ```
 
----
-
-### Multiple targets from one response
+### Auto-refresh
 
 ```js
-domkit.action("#dashboard-load", {
-  on: "click",
-  url: "/api/dashboard",
-  method: "GET",
-  targets:   ["#chart-list", "#summary-box"],
-  templates: [
-    "<li>{{label}}: {{value}}</li>",
-    "<p>Total: {{total}}</p>",
-  ],
-  keys: ["dataPoints", ""],  // "" renders from the response root
-});
+action("#live-feed", {
+  on:             "click",  // initial trigger
+  url:            "/api/feed",
+  method:         "GET",
+  targets:        ["#feed"],
+  templates:      ["<div>{{message}}</div>"],
+  refetchInterval: 5000,   // then re-fetch every 5 seconds
+})
 ```
 
----
-
-### Auth, loading, caching, and polling
+### Callbacks
 
 ```js
-domkit.action("#stats", {
-  on: "click",
-  url: "/api/stats",
-  method: "GET",
-  auth: "localStorage.getItem('token')",  // evaluated at request time
-  loading: "#spinner",                    // hidden after fetch
-  cache: 30_000,                          // reuse result for 30s
-  refetchInterval: 60_000,               // re-fetch every 60s automatically
-  targets:   ["#stats-list"],
-  templates: ["<li>{{metric}}: {{value}}</li>"],
-  keys:      ["stats"],
-});
-```
-
----
-
-## redirect
-
-```js
-domkit.redirect("/dashboard");                    // same tab
-domkit.redirect("https://example.com", true);     // new tab
+action("#form", {
+  url:       "/api/submit",
+  onSuccess: (data) => {
+    console.log("saved:", data)
+    swap("#status", "<p>Saved!</p>")
+  },
+  onError: (err) => {
+    console.error(err)
+    swap("#status", "<p>Something went wrong.</p>")
+  },
+})
 ```
 
 ---
 
 ## Full example
 
+A filtered list that reacts to a search signal and updates from the server:
+
 ```html
-<!DOCTYPE html>
-<html>
-<body>
-  <input id="search-input" name="q" placeholder="Search…" />
-  <button id="search-btn">Search</button>
-  <div id="loading" style="display:none">Loading…</div>
-  <ul id="results"></ul>
+<input id="search" type="text" placeholder="Search…" />
+<div id="spinner" style="display:none">Loading…</div>
+<ul id="results"></ul>
 
-  <script src="domkit.js"></script>
-  <script>
-    const { signal, effect, action } = domkit;
+<script src="domkit.js"></script>
+<script>
+  const { signal, effect, on, swap, render, action } = domkit
 
-    // Reactive query display
-    const query = signal("");
-    effect(() => {
-      console.log("query:", query.get());
-    }, [query]);
+  const query = signal("")
 
-    domkit.on("#search-input", "input", (e) => query.set(e.target.value));
+  // keep signal in sync with input
+  on("#search", "input", (e) => query.set(e.target.value))
 
-    // Fetch on button click
-    action("#search-btn", {
-      on: "click",
-      url: "/api/search?q=:q",
-      method: "GET",
-      varSource: "input",
-      loading: "#loading",
-      targets: ["#results"],
-      templates: ["<li><strong>{{title}}</strong> — {{summary}}</li>"],
-      keys: ["hits"],
-      onError: (err) => domkit.swap("#results", `<li>Error: ${err.message}</li>`),
-    });
-  </script>
-</body>
-</html>
+  // re-run search whenever query changes
+  effect(() => {
+    if (!query.get()) {
+      swap("#results", "")
+      return
+    }
+
+    action("#search", {
+      on:        "input",
+      url:       "/api/search",
+      method:    "GET",
+      targets:   ["#results"],
+      templates: ["<li>{{title}}</li>"],
+      keys:      ["results"],
+      loading:   "#spinner",
+    })
+  }, [query])
+</script>
+```
+
+A real-time dashboard widget that polls every 10 seconds:
+
+```html
+<button id="start">Start feed</button>
+<ul id="feed"></ul>
+
+<script>
+  action("#start", {
+    on:              "click",
+    url:             "/api/events",
+    method:          "GET",
+    targets:         ["#feed"],
+    templates:       ["<li>{{timestamp}} — {{message}}</li>"],
+    keys:            ["events"],
+    refetchInterval: 10_000,
+  })
+</script>
 ```
 
 ---
 
-## License
+## API reference
 
-MIT
+| Function | Description |
+|---|---|
+| `signal(value)` | Create a reactive value |
+| `computed(fn, deps)` | Derive a read-only signal from others |
+| `effect(fn, deps)` | Run a side effect when signals change |
+| `once(signal, fn)` | React to the next change only |
+| `batch(fn)` | Group signal updates, notify once |
+| `combine(signals, fn)` | Map multiple signals into one |
+| `select(sel, ctx?)` | `querySelector` wrapper → element or null |
+| `selectAll(sel, ctx?)` | `querySelectorAll` wrapper → array |
+| `on(target, event, handler)` | Add listener, returns unsub fn |
+| `off(target, event, handler)` | Remove listener |
+| `addClass(target, ...cls)` | Add classes |
+| `removeClass(target, ...cls)` | Remove classes |
+| `toggleClass(target, cls, force?)` | Toggle a class |
+| `append(target, html)` | Insert HTML at end |
+| `prepend(target, html)` | Insert HTML at start |
+| `swap(target, html)` | Replace inner HTML |
+| `shift(target)` | Remove first child |
+| `pop(target)` | Remove last child |
+| `remove(target)` | Remove element(s) from DOM |
+| `render(tpl, data)` | Fill `{{placeholder}}` template |
+| `redirect(url, newTab?)` | Navigate or open tab |
+| `action(selector, config)` | Bind fetch pipeline to element |
+| `initActions(root?)` | Re-scan DOM for unwired `[action-url]` elements |
