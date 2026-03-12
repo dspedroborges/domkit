@@ -344,9 +344,9 @@
 
   // ─────────────────────────────────────────────────────────────────
   // DECLARATIVE ACTIONS
-  // Elements with action-url attributes are auto-wired on load.
+  // Elements with x_url attributes are auto-wired on load.
   // Multi-value attributes (targets, templates, keys) are
-  // comma-separated: action-targets="#a, #b"
+  // comma-separated: x_targets="#a, #b"
   // ─────────────────────────────────────────────────────────────────
 
   // Track which elements have already been wired to avoid double-binding
@@ -359,39 +359,39 @@
 
   function wireElement(el) {
     if (wired.has(el)) return;
-    if (!el.hasAttribute("action-url")) return;
+    if (!el.hasAttribute("x_url")) return;
     wired.add(el);
 
-    const targets   = parseList(el.getAttribute("action-targets"));
-    const templates = parseList(el.getAttribute("action-templates"));
-    const keys      = parseList(el.getAttribute("action-keys"));
+    const targets   = parseList(el.getAttribute("x_targets"));
+    const templates = parseList(el.getAttribute("x_templates"));
+    const keys      = parseList(el.getAttribute("x_keys"));
 
-    const successExpr = el.getAttribute("action-success");
-    const errorExpr   = el.getAttribute("action-error");
+    const successExpr = el.getAttribute("x_success");
+    const errorExpr   = el.getAttribute("x_error");
 
     action(el, {
-      url:             el.getAttribute("action-url"),
-      method:          el.getAttribute("action-method")  || "POST",
-      on:              el.getAttribute("action-on")      || "submit",
-      loading:         el.getAttribute("action-loading") || "",
-      cache:           Number(el.getAttribute("action-cache"))  || 0,
-      auth:            el.getAttribute("action-auth")    || null,
-      refetchInterval: Number(el.getAttribute("action-refetch")) || 0,
+      url:             el.getAttribute("x_url"),
+      method:          el.getAttribute("x_method")  || "POST",
+      on:              el.getAttribute("x_on")      || "submit",
+      loading:         el.getAttribute("x_loading") || "",
+      cache:           Number(el.getAttribute("x_cache"))  || 0,
+      auth:            el.getAttribute("x_auth")    || null,
+      refetchInterval: Number(el.getAttribute("x_refetch")) || 0,
       targets,
       templates,
       keys,
       onSuccess: successExpr
-        ? (data) => { try { eval(successExpr); } catch(e) { console.error("action-success:", e); } }
+        ? (data) => { try { eval(successExpr); } catch(e) { console.error("x_success:", e); } }
         : () => {},
       onError: errorExpr
-        ? (err)  => { try { eval(errorExpr);   } catch(e) { console.error("action-error:", e);   } }
+        ? (err)  => { try { eval(errorExpr);   } catch(e) { console.error("x_error:", e);   } }
         : () => {},
     });
   }
 
   function initActions(root) {
     const ctx = root instanceof Element ? root : document;
-    ctx.querySelectorAll("[action-url]").forEach(wireElement);
+    ctx.querySelectorAll("[x_url]").forEach(wireElement);
   }
 
   // Auto-init on DOMContentLoaded (or immediately if DOM is already ready)
@@ -407,10 +407,10 @@
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element)) continue;
-          // wire the node itself if it has action-url
+          // wire the node itself if it has x_url
           wireElement(node);
           // wire any descendants
-          node.querySelectorAll("[action-url]").forEach(wireElement);
+          node.querySelectorAll("[x_url]").forEach(wireElement);
         }
       }
     });

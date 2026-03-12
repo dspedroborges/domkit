@@ -363,17 +363,17 @@ redirect("https://example.com", true)  // new tab
 
 ## Declarative actions
 
-Any element with an `action-url` attribute is automatically wired up when the page loads — no JavaScript required. This is the same `action()` function under the hood, driven by HTML attributes instead of a config object.
+Any element with an `x_url` attribute is automatically wired up when the page loads — no JavaScript required. This is the same `action()` function under the hood, driven by HTML attributes instead of a config object.
 
 ```html
 <form
-  action-url="/api/search"
-  action-method="GET"
-  action-on="submit"
-  action-targets="#results"
-  action-templates="<li>{{title}}</li>"
-  action-keys="items"
-  action-loading="#spinner"
+  x_url="/api/search"
+  x_method="GET"
+  x_on="submit"
+  x_targets="#results"
+  x_templates="<li>{{title}}</li>"
+  x_keys="items"
+  x_loading="#spinner"
 >
   <input name="q" placeholder="Search…" />
   <button>Go</button>
@@ -389,43 +389,43 @@ Import domkit and it just works — no init call needed.
 
 | Attribute | Equivalent config key | Notes |
 |---|---|---|
-| `action-url` | `url` | Required. Triggers auto-wiring. |
-| `action-method` | `method` | Default: `POST` |
-| `action-on` | `on` | Default: `submit` |
-| `action-targets` | `targets` | Comma-separated selectors |
-| `action-templates` | `templates` | Comma-separated templates |
-| `action-keys` | `keys` | Comma-separated dot-paths |
-| `action-loading` | `loading` | Selector of loading element |
-| `action-cache` | `cache` | Duration in ms |
-| `action-auth` | `auth` | Token string or JS expression |
-| `action-refetch` | `refetchInterval` | Interval in ms |
-| `action-success` | `onSuccess` | JS expression, `data` is in scope |
-| `action-error` | `onError` | JS expression, `err` is in scope |
+| `x_url` | `url` | Required. Triggers auto-wiring. |
+| `x_method` | `method` | Default: `POST` |
+| `x_on` | `on` | Default: `submit` |
+| `x_targets` | `targets` | Comma-separated selectors |
+| `x_templates` | `templates` | Comma-separated templates |
+| `x_keys` | `keys` | Comma-separated dot-paths |
+| `x_loading` | `loading` | Selector of loading element |
+| `x_cache` | `cache` | Duration in ms |
+| `x_auth` | `auth` | Token string or JS expression |
+| `x_refetch` | `refetchInterval` | Interval in ms |
+| `x_success` | `onSuccess` | JS expression, `data` is in scope |
+| `x_error` | `onError` | JS expression, `err` is in scope |
 
 ### Multi-value attributes
 
-`action-targets`, `action-templates`, and `action-keys` are comma-separated when you need multiple targets:
+`x_targets`, `x_templates`, and `x_keys` are comma-separated when you need multiple targets:
 
 ```html
 <button
-  action-url="/api/users"
-  action-method="GET"
-  action-on="click"
-  action-targets="#count,        #list"
-  action-templates="{{total}} users, <li>{{name}}</li>"
-  action-keys="meta,             items"
+  x_url="/api/users"
+  x_method="GET"
+  x_on="click"
+  x_targets="#count,        #list"
+  x_templates="{{total}} users, <li>{{name}}</li>"
+  x_keys="meta,             items"
 >Load</button>
 ```
 
 ### Callbacks via expressions
 
-`action-success` and `action-error` are JavaScript expressions evaluated when the request completes. `data` and `err` are in scope respectively:
+`x_success` and `x_error` are JavaScript expressions evaluated when the request completes. `data` and `err` are in scope respectively:
 
 ```html
 <form
-  action-url="/api/login"
-  action-success="redirect('/dashboard')"
-  action-error="swap('#msg', '<p>Login failed: ' + err.message + '</p>')"
+  x_url="/api/login"
+  x_success="redirect('/dashboard')"
+  x_error="swap('#msg', '<p>Login failed: ' + err.message + '</p>')"
 >
   <input name="email" />
   <input name="password" type="password" />
@@ -435,34 +435,34 @@ Import domkit and it just works — no init call needed.
 
 ```html
 <button
-  action-url="/api/item/:id"
-  action-method="DELETE"
-  action-on="click"
-  action-success="remove('#item-' + data.id)"
+  x_url="/api/item/:id"
+  x_method="DELETE"
+  x_on="click"
+  x_success="remove('#item-' + data.id)"
 >Delete</button>
 ```
 
 ### Dynamic content
 
-Elements added to the DOM after page load (e.g. via `swap()` or `append()`) are also picked up automatically — a `MutationObserver` watches for new `[action-url]` elements and wires them immediately.
+Elements added to the DOM after page load (e.g. via `swap()` or `append()`) are also picked up automatically — a `MutationObserver` watches for new `[x_url]` elements and wires them immediately.
 
 ```js
 // This newly inserted element will be auto-wired, no extra call needed
 append("#container", `
   <button
-    action-url="/api/posts"
-    action-method="GET"
-    action-on="click"
-    action-targets="#posts"
-    action-templates="<li>{{title}}</li>"
-    action-keys="posts"
+    x_url="/api/posts"
+    x_method="GET"
+    x_on="click"
+    x_targets="#posts"
+    x_templates="<li>{{title}}</li>"
+    x_keys="posts"
   >Load posts</button>
 `)
 ```
 
 ### `initActions(root?)`
 
-Manually re-scan for unwired `[action-url]` elements. Useful after a large DOM replacement that bypasses the MutationObserver (e.g. setting `innerHTML` directly on a container). Pass a root element to limit the scan, or call with no argument to scan the whole document.
+Manually re-scan for unwired `[x_url]` elements. Useful after a large DOM replacement that bypasses the MutationObserver (e.g. setting `innerHTML` directly on a container). Pass a root element to limit the scan, or call with no argument to scan the whole document.
 
 ```js
 swap("#app", newHtml)
@@ -707,4 +707,4 @@ A real-time dashboard widget that polls every 10 seconds:
 | `render(tpl, data)` | Fill `{{placeholder}}` template |
 | `redirect(url, newTab?)` | Navigate or open tab |
 | `action(selector, config)` | Bind fetch pipeline to element |
-| `initActions(root?)` | Re-scan DOM for unwired `[action-url]` elements |
+| `initActions(root?)` | Re-scan DOM for unwired `[x_url]` elements |
